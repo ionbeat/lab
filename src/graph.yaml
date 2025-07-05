@@ -1,0 +1,36 @@
+nodes:
+  - key: OBS
+    label: OBS
+    size: 10
+    color: "#1976d2"
+    description: UBS Luxembourg Core banking.
+  - key: OMS_ARCHIVE
+    label: OMS Archive
+    size: 8
+    color: "#388e3c"
+    description: USB Archive System.
+  - key: IFOP
+    label: IFOP
+    size: 8
+    color: "#fbc02d"
+    description: Internal CRM.
+  - key: ASSENTIS
+    label: ASSENTIS 
+    size: 7
+    color: "#d32f2f"
+    description: Business Intelligence platform.
+  - key: IFOP_DBaaS_PRD
+    label: DBaaS Config of IFOP 
+    size: 7
+    color: "#d32f2f"
+    description: DB Configuration. 
+edges:
+  - source: OBS
+    target: OMS_ARCHIVE
+  - source: OBS
+    target: IFOP  
+  - source: OBS
+    target: ASSENTIS  
+  - source: IFOP
+    target: IFOP_DBaaS_PRD
+
