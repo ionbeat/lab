@@ -118,6 +118,8 @@ function App() {
     if (!searchKey && !searchLabel) {
       setStarNodes([]);
       setStarEdges([]);
+      setSelectedNode(null); // Ensure detail panel is hidden when search is cleared
+      setNodeInfo(null);
       return;
     }
     const match = nodes.find((n) => {
@@ -135,6 +137,8 @@ function App() {
     if (!match) {
       setStarNodes([]);
       setStarEdges([]);
+      setSelectedNode(null); // Hide detail panel if no match
+      setNodeInfo(null);
       return;
     }
     // Center node at (0,0)
@@ -167,6 +171,8 @@ function App() {
     const validNeighborNodes = neighborNodes.filter(n => n && n.key);
     setStarNodes([centerNode, ...validNeighborNodes]);
     setStarEdges(starEdges);
+    setSelectedNode(match.key); // Always show detail panel for first match
+    setNodeInfo(match);
   }, [searchKey, searchLabel, nodes, edges]);
 
   useEffect(() => {
@@ -486,12 +492,6 @@ function App() {
               <div style={{ padding: "18px 20px 12px 20px", color: "#222" }}>
                 <p style={{ margin: "8px 0" }}><strong>Description:</strong> {nodeInfo.description}</p>
                 <p style={{ margin: "8px 0" }}><strong>Key:</strong> {selectedNode}</p>
-                <button
-                  style={{ marginTop: 12, padding: "6px 16px", background: "#eee", border: "none", borderRadius: 4, cursor: "pointer", color: "#222" }}
-                  onClick={() => { setSelectedNode(null); setNodeInfo(null); }}
-                >
-                  Close
-                </button>
               </div>
             </div>
           )}
