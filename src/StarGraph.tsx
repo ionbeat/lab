@@ -73,19 +73,32 @@ const StarGraph = () => {
     loadGraphYaml().then(({ nodes, edges }) => {
       let center: any = nodes[0];
       let found = true;
+      // Helper to convert wildcard search to regex
+      const wildcardToRegex = (pattern: string) => {
+        // Escape regex special chars except *
+        const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
+        return new RegExp('^' + esc.replace(/\*/g, '.*') + '$', 'i');
+      };
       if (rootKey) {
         const f = nodes.find(n => n.key === rootKey);
         if (f) center = f;
         else found = false;
       } else if (searchKey || searchLabel) {
-        const match = nodes.find(n => {
-          const keyMatch = searchKey && n.key.toLowerCase() === searchKey.toLowerCase();
-          const labelMatch = searchLabel && n.label && n.label.toLowerCase().includes(searchLabel.toLowerCase());
-          if (searchKey && searchLabel) return keyMatch && labelMatch;
-          if (searchKey) return keyMatch;
-          if (searchLabel) return labelMatch;
-          return false;
-        });
+        let match;
+        if (searchKey && searchKey.includes('*')) {
+          const keyRegex = wildcardToRegex(searchKey);
+          match = nodes.find(n => keyRegex.test(n.key));
+        } else if (searchKey) {
+          match = nodes.find(n => n.key.toLowerCase() === searchKey.toLowerCase());
+        }
+        if (!match && searchLabel) {
+          if (searchLabel.includes('*')) {
+            const labelRegex = wildcardToRegex(searchLabel);
+            match = nodes.find(n => n.label && labelRegex.test(n.label));
+          } else {
+            match = nodes.find(n => n.label && n.label.toLowerCase().includes(searchLabel.toLowerCase()));
+          }
+        }
         if (match) center = match;
         else found = false;
       }
