@@ -102,7 +102,7 @@ const StarGraph = () => {
       const neighbors = edges
         .filter(e => e.source === center.key || e.target === center.key)
         .map(e => (e.source === center.key ? e.target : e.source));
-      // Arrange center at (0,0), neighbors in a circle
+      // If leaf node (no neighbors), still allow reset/search to work
       const R = 250;
       const angleStep = (2 * Math.PI) / Math.max(1, neighbors.length);
       const cyNodes = [
@@ -173,8 +173,8 @@ const StarGraph = () => {
     if (node.isNode && node.isNode()) {
       const data = node.data();
       setRootKey(data.key); // navigate to this node as root
-      setSearchKey(data.key || "");
-      setSearchLabel(data.label || "");
+      setSearchKey("");
+      setSearchLabel("");
     }
   };
 
@@ -289,17 +289,17 @@ const StarGraph = () => {
             type="text"
             placeholder="Search by key..."
             value={searchKey}
-            onChange={e => setSearchKey(e.target.value)}
+            onChange={e => { setSearchKey(e.target.value); setRootKey(null); }}
             style={{ padding: 8, fontSize: 16, width: 160, borderRadius: 6, border: "1px solid #d0d3d8" }}
           />
           <input
             type="text"
             placeholder="Search by label..."
             value={searchLabel}
-            onChange={e => setSearchLabel(e.target.value)}
+            onChange={e => { setSearchLabel(e.target.value); setRootKey(null); }}
             style={{ padding: 8, fontSize: 16, width: 220, borderRadius: 6, border: "1px solid #d0d3d8" }}
           />
-          <button onClick={() => { setSearchKey(""); setSearchLabel(""); }} style={{ padding: "8px 18px", fontSize: 16, borderRadius: 6, border: "none", background: "#1976d2", color: "#fff", fontWeight: 500, cursor: "pointer" }}>Reset</button>
+          <button onClick={() => { setSearchKey(""); setSearchLabel(""); setRootKey(null); }} style={{ padding: "8px 18px", fontSize: 16, borderRadius: 6, border: "none", background: "#1976d2", color: "#fff", fontWeight: 500, cursor: "pointer" }}>Reset</button>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 32 }}>
           <button onClick={handleDownloadYaml} style={{ height: 44, padding: "0 24px", fontSize: 16, borderRadius: 6, border: "none", background: "#388e3c", color: "#fff", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center" }}>Download YAML</button>
@@ -330,6 +330,8 @@ const StarGraph = () => {
         </div>
         {/* Graph Panel */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f3", position: "relative", borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", border: "1.5px solid #d3d6db" }}>
+          {/* Zoom Controls */}
+          {/* ...existing code... */}
           {noMatch ? (
             <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
               <span style={{ fontSize: 38, color: "#bbb", fontWeight: 600, letterSpacing: 1 }}>No application found</span>
@@ -343,7 +345,15 @@ const StarGraph = () => {
               stylesheet={CYTO_STYLE}
               cy={(cy: any) => {
                 cyRef.current = cy;
-                cy.on("tap", handleTap);
+                cy.on("tap", (event: any) => {
+                  const node = event.target;
+                  if (node.isNode && node.isNode()) {
+                    const data = node.data();
+                    setRootKey(data.key); // navigate to this node as root
+                    setSearchKey("");
+                    setSearchLabel("");
+                  }
+                });
               }}
             />
           )}
