@@ -63,13 +63,18 @@ const StarGraph = () => {
   const [searchLabel, setSearchLabel] = useState("");
   const cyRef = useRef<any>(null);
   const [centerNodeKey, setCenterNodeKey] = useState<string | null>(null);
+  const [rootKey, setRootKey] = useState<string | null>(null);
 
   // Load YAML and build star graph
   useEffect(() => {
     loadGraphYaml().then(({ nodes, edges }) => {
       let center: any = nodes[0];
-      // If search, find match
-      if (searchKey || searchLabel) {
+      // If rootKey is set (from double-click), use it as center
+      if (rootKey) {
+        const found = nodes.find(n => n.key === rootKey);
+        if (found) center = found;
+      } else if (searchKey || searchLabel) {
+        // If search, find match
         const match = nodes.find(n => {
           const keyMatch = searchKey && n.key.toLowerCase() === searchKey.toLowerCase();
           const labelMatch = searchLabel && n.label && n.label.toLowerCase().includes(searchLabel.toLowerCase());
@@ -116,7 +121,7 @@ const StarGraph = () => {
       setSelected(center.key); // always select center
       setInfo(center);
     });
-  }, [searchKey, searchLabel]);
+  }, [searchKey, searchLabel, rootKey]);
 
   // Center and highlight node on click or search
   useEffect(() => {
@@ -138,9 +143,9 @@ const StarGraph = () => {
       const node = event.target;
       if (node.isNode && node.isNode()) {
         const data = node.data();
-        setSearchKey(data.key || "");
-        setSearchLabel(data.label || "");
-        setCenterNodeKey(data.key); // reload graph with this node as center
+        setRootKey(data.key); // set as new root
+        setSearchKey("");
+        setSearchLabel("");
       }
     };
     cy.on("dblclick", "node", handleDoubleTap);
@@ -153,57 +158,64 @@ const StarGraph = () => {
   const handleTap = (event: any) => {
     const node = event.target;
     if (node.isNode && node.isNode()) {
-      setSelected(node.id());
-      setInfo(node.data());
-      setCenterNodeKey(node.id());
-    } else {
-      setSelected(null);
-      setInfo(null);
+      const data = node.data();
+      setRootKey(data.key); // navigate to this node as root
+      setSearchKey(data.key || "");
+      setSearchLabel(data.label || "");
     }
   };
 
   if (loading) return <div>Loading graph...</div>;
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 700, height: 520, background: "#fff", borderRadius: 18, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: "1.5px solid #e0e3e8", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {/* Search UI */}
-        <div style={{ position: "absolute", left: 24, top: 24, zIndex: 20, background: "#fff", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", padding: 12, display: "flex", gap: 8, alignItems: "center" }}>
+    <div style={{ width: "100vw", height: "100vh", background: "#f7f8fa", display: "flex", flexDirection: "column" }}>
+      {/* Top: Search Bar */}
+      <div style={{ width: "100%", padding: "24px 0 12px 0", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 10 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <input
             type="text"
             placeholder="Search by key..."
             value={searchKey}
             onChange={e => setSearchKey(e.target.value)}
-            style={{ padding: 6, fontSize: 15, width: 120 }}
+            style={{ padding: 8, fontSize: 16, width: 160, borderRadius: 6, border: "1px solid #d0d3d8" }}
           />
           <input
             type="text"
             placeholder="Search by label..."
             value={searchLabel}
             onChange={e => setSearchLabel(e.target.value)}
-            style={{ padding: 6, fontSize: 15, width: 180 }}
+            style={{ padding: 8, fontSize: 16, width: 220, borderRadius: 6, border: "1px solid #d0d3d8" }}
           />
-          <button onClick={() => { setSearchKey(""); setSearchLabel(""); }} style={{ padding: 6, fontSize: 15 }}>Reset</button>
+          <button onClick={() => { setSearchKey(""); setSearchLabel(""); }} style={{ padding: "8px 18px", fontSize: 16, borderRadius: 6, border: "none", background: "#1976d2", color: "#fff", fontWeight: 500, cursor: "pointer" }}>Reset</button>
         </div>
-        <CytoscapeComponent
-          elements={elements}
-          style={{ width: "100%", height: "100%" }}
-          layout={CYTO_LAYOUT}
-          stylesheet={CYTO_STYLE}
-          cy={cy => {
-            cyRef.current = cy;
-            cy.on("tap", handleTap);
-          }}
-        />
-        {info && (
-          <div style={{ position: "absolute", right: 24, top: 24, minWidth: 260, background: "#f0f1f3", border: "1px solid #ddd", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", padding: 0, zIndex: 30, textAlign: "left", color: "#222" }}>
-            <div style={{ background: "#e0e3e8", borderTopLeftRadius: 8, borderTopRightRadius: 8, padding: "12px 20px", fontWeight: 600, fontSize: 18, color: "#111" }}>{info.label}</div>
-            <div style={{ padding: "18px 20px 12px 20px", color: "#222" }}>
-              <p style={{ margin: "8px 0" }}><strong>Description:</strong> {info.description}</p>
-              <p style={{ margin: "8px 0" }}><strong>Key:</strong> {info.key}</p>
-            </div>
-          </div>
-        )}
+      </div>
+      {/* Bottom: Detail + Graph */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0 }}>
+        {/* Detail Panel */}
+        <div style={{ width: 340, background: "#f0f1f3", borderRight: "1.5px solid #e0e3e8", padding: "36px 28px", display: "flex", flexDirection: "column", justifyContent: "flex-start", minHeight: 0 }}>
+          {info ? (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 22, color: "#1976d2", marginBottom: 12 }}>{info.label}</div>
+              <div style={{ color: "#222", fontSize: 16, marginBottom: 18 }}><strong>Description:</strong> {info.description}</div>
+              <div style={{ color: "#444", fontSize: 15 }}><strong>Key:</strong> {info.key}</div>
+            </>
+          ) : (
+            <div style={{ color: "#888", fontSize: 16 }}>Select a node to see details</div>
+          )}
+        </div>
+        {/* Graph Panel */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f3" }}>
+          <CytoscapeComponent
+            elements={elements}
+            style={{ width: "100%", height: "100%" }}
+            layout={CYTO_LAYOUT}
+            stylesheet={CYTO_STYLE}
+            cy={(cy: any) => {
+              cyRef.current = cy;
+              cy.on("tap", handleTap);
+            }}
+          />
+        </div>
       </div>
     </div>
   );
