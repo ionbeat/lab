@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import CytoscapeComponent from "react-cytoscapejs";
 import { loadGraphYaml } from "./graphLoader";
+import yaml from "js-yaml";
 
 const CYTO_LAYOUT = {
   name: "preset",
@@ -64,17 +65,19 @@ const StarGraph = () => {
   const cyRef = useRef<any>(null);
   const [centerNodeKey, setCenterNodeKey] = useState<string | null>(null);
   const [rootKey, setRootKey] = useState<string | null>(null);
+  const [uploadedYaml, setUploadedYaml] = useState<string | null>(null);
+  const [noMatch, setNoMatch] = useState(false);
 
   // Load YAML and build star graph
   useEffect(() => {
     loadGraphYaml().then(({ nodes, edges }) => {
       let center: any = nodes[0];
-      // If rootKey is set (from double-click), use it as center
+      let found = true;
       if (rootKey) {
-        const found = nodes.find(n => n.key === rootKey);
-        if (found) center = found;
+        const f = nodes.find(n => n.key === rootKey);
+        if (f) center = f;
+        else found = false;
       } else if (searchKey || searchLabel) {
-        // If search, find match
         const match = nodes.find(n => {
           const keyMatch = searchKey && n.key.toLowerCase() === searchKey.toLowerCase();
           const labelMatch = searchLabel && n.label && n.label.toLowerCase().includes(searchLabel.toLowerCase());
@@ -84,6 +87,16 @@ const StarGraph = () => {
           return false;
         });
         if (match) center = match;
+        else found = false;
+      }
+      setNoMatch(!found);
+      if (!found) {
+        setElements([]);
+        setInfo(null);
+        setCenterNodeKey(null);
+        setSelected(null);
+        setLoading(false);
+        return;
       }
       setCenterNodeKey(center.key);
       const neighbors = edges
@@ -165,13 +178,113 @@ const StarGraph = () => {
     }
   };
 
+  // Download current graph as YAML
+  const handleDownloadYaml = async () => {
+    // Use the latest loaded YAML if available, else reconstruct from elements
+    let graphData;
+    if (elements.length > 0) {
+      // Reconstruct nodes and edges from elements
+      const nodes = elements.filter(e => e.data && e.data.id && !e.data.source).map(e => ({
+        key: e.data.key,
+        label: e.data.label,
+        description: e.data.description,
+      }));
+      const edges = elements.filter(e => e.data && e.data.source && e.data.target).map(e => ({
+        source: e.data.source,
+        target: e.data.target,
+      }));
+      graphData = { nodes, edges };
+    } else {
+      graphData = await loadGraphYaml();
+    }
+    const yamlStr = yaml.dump(graphData);
+    const blob = new Blob([yamlStr], { type: "text/yaml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "graph.yaml";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Upload new YAML file
+  const handleUploadYaml = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const text = evt.target?.result as string;
+      try {
+        const parsed = yaml.load(text) as { nodes: any[]; edges: any[] };
+        // Replace the graph with uploaded YAML
+        setRootKey(null);
+        setSearchKey("");
+        setSearchLabel("");
+        setElements([]); // clear first
+        setTimeout(() => {
+          setElements([]); // ensure clear
+          setUploadedYaml(text); // trigger reload
+        }, 0);
+      } catch (err) {
+        alert("Invalid YAML file");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // If uploadedYaml changes, reload the graph from it
+  useEffect(() => {
+    if (!uploadedYaml) return;
+    try {
+      const parsed = yaml.load(uploadedYaml) as { nodes: any[]; edges: any[] };
+      let center = parsed.nodes[0];
+      setCenterNodeKey(center.key);
+      const neighbors = parsed.edges
+        .filter(e => e.source === center.key || e.target === center.key)
+        .map(e => (e.source === center.key ? e.target : e.source));
+      const R = 250;
+      const angleStep = (2 * Math.PI) / Math.max(1, neighbors.length);
+      const cyNodes = [
+        {
+          data: { ...center, id: center.key, size: center.size ?? 1, color: center.color ?? "#1976d2" },
+          position: { x: 0, y: 0 },
+        },
+        ...neighbors.map((key, i) => {
+          const n = parsed.nodes.find((n: any) => n.key === key);
+          const pos = polarToXY(0, 0, R, i * angleStep);
+          return {
+            data: { ...n, id: n.key, size: n.size ?? 1, color: n.color ?? "#388e3c" },
+            position: pos,
+          };
+        }),
+      ];
+      const cyEdges = neighbors.map(key => {
+        return {
+          data: {
+            id: `${center.key}-${key}`,
+            source: center.key,
+            target: key,
+          },
+        };
+      });
+      setElements([...cyNodes, ...cyEdges]);
+      setLoading(false);
+      setSelected(center.key);
+      setInfo(center);
+    } catch (err) {
+      alert("Invalid YAML file");
+    }
+  }, [uploadedYaml]);
+
   if (loading) return <div>Loading graph...</div>;
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: "#f7f8fa", display: "flex", flexDirection: "column" }}>
       {/* Top: Search Bar */}
-      <div style={{ width: "100%", padding: "24px 0 12px 0", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 10 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <div style={{ width: "100%", padding: "24px 0 12px 0", background: "#f0f1f3", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10, marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: 32 }}>
           <input
             type="text"
             placeholder="Search by key..."
@@ -188,14 +301,22 @@ const StarGraph = () => {
           />
           <button onClick={() => { setSearchKey(""); setSearchLabel(""); }} style={{ padding: "8px 18px", fontSize: 16, borderRadius: 6, border: "none", background: "#1976d2", color: "#fff", fontWeight: 500, cursor: "pointer" }}>Reset</button>
         </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginRight: 32 }}>
+          <button onClick={handleDownloadYaml} style={{ height: 44, padding: "0 24px", fontSize: 16, borderRadius: 6, border: "none", background: "#388e3c", color: "#fff", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center" }}>Download YAML</button>
+          <label style={{ height: 44, padding: "0 24px", fontSize: 16, borderRadius: 6, border: "none", background: "#ff9800", color: "#fff", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center" }}>
+            Upload YAML
+            <input type="file" accept=".yaml,.yml" style={{ display: "none" }} onChange={handleUploadYaml} />
+          </label>
+        </div>
       </div>
       {/* Bottom: Detail + Graph */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0, gap: 4 }}>
         {/* Detail Panel */}
-        <div style={{ width: 340, background: "#f0f1f3", borderRight: "1.5px solid #e0e3e8", padding: "36px 28px", display: "flex", flexDirection: "column", justifyContent: "flex-start", minHeight: 0 }}>
+        <div style={{ width: 340, background: "#f0f1f3", borderRight: "1.5px solid #d3d6db", padding: "36px 28px", display: "flex", flexDirection: "column", justifyContent: "flex-start", minHeight: 0, borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", marginRight: 4 }}>
           {info ? (
             <>
               <div style={{ fontWeight: 700, fontSize: 22, color: "#1976d2", marginBottom: 12 }}>{info.label}</div>
+              <div style={{ borderBottom: "1.5px solid #d3d6db", marginBottom: 18 }}></div>
               <div style={{ color: "#222", fontSize: 16, marginBottom: 18 }}><strong>Description:</strong> {info.description}</div>
               <div style={{ color: "#444", fontSize: 15 }}><strong>Key:</strong> {info.key}</div>
             </>
@@ -204,17 +325,24 @@ const StarGraph = () => {
           )}
         </div>
         {/* Graph Panel */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f3" }}>
-          <CytoscapeComponent
-            elements={elements}
-            style={{ width: "100%", height: "100%" }}
-            layout={CYTO_LAYOUT}
-            stylesheet={CYTO_STYLE}
-            cy={(cy: any) => {
-              cyRef.current = cy;
-              cy.on("tap", handleTap);
-            }}
-          />
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f1f3", position: "relative", borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", border: "1.5px solid #d3d6db" }}>
+          {noMatch ? (
+            <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
+              <span style={{ fontSize: 38, color: "#bbb", fontWeight: 600, letterSpacing: 1 }}>No application found</span>
+            </div>
+          ) : null}
+          {!noMatch && (
+            <CytoscapeComponent
+              elements={elements}
+              style={{ width: "100%", height: "100%" }}
+              layout={CYTO_LAYOUT}
+              stylesheet={CYTO_STYLE}
+              cy={(cy: any) => {
+                cyRef.current = cy;
+                cy.on("tap", handleTap);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
