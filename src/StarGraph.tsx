@@ -57,7 +57,6 @@ function polarToXY(centerX: number, centerY: number, radius: number, angle: numb
 
 const StarGraph = () => {
   const [elements, setElements] = useState<any[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
   const [info, setInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchKey, setSearchKey] = useState("");
@@ -65,7 +64,6 @@ const StarGraph = () => {
   const cyRef = useRef<any>(null);
   const [centerNodeKey, setCenterNodeKey] = useState<string | null>(null);
   const [rootKey, setRootKey] = useState<string | null>(null);
-  const [uploadedYaml, setUploadedYaml] = useState<string | null>(null);
   const [noMatch, setNoMatch] = useState(false);
 
   // Load YAML and build star graph
@@ -107,7 +105,6 @@ const StarGraph = () => {
         setElements([]);
         setInfo(null);
         setCenterNodeKey(null);
-        setSelected(null);
         setLoading(false);
         return;
       }
@@ -144,7 +141,6 @@ const StarGraph = () => {
       });
       setElements([...cyNodes, ...cyEdges]);
       setLoading(false);
-      setSelected(center.key); // always select center
       setInfo(center);
     });
   }, [searchKey, searchLabel, rootKey]);
@@ -180,16 +176,6 @@ const StarGraph = () => {
       cy.removeListener("dblclick", "node", handleDoubleTap);
     };
   }, [cyRef]);
-
-  const handleTap = (event: any) => {
-    const node = event.target;
-    if (node.isNode && node.isNode()) {
-      const data = node.data();
-      setRootKey(data.key); // navigate to this node as root
-      setSearchKey("");
-      setSearchLabel("");
-    }
-  };
 
   // Download current graph as YAML
   const handleDownloadYaml = async () => {
@@ -238,57 +224,12 @@ const StarGraph = () => {
         setRootKey(null);
         setSearchKey("");
         setSearchLabel("");
-        setUploadedYaml(null); // force reload
         setTimeout(() => window.location.reload(), 500); // reload page to get new YAML
       })
       .catch(() => {
         alert("Upload failed");
       });
   };
-
-  // If uploadedYaml changes, reload the graph from it
-  useEffect(() => {
-    if (!uploadedYaml) return;
-    try {
-      const parsed = yaml.load(uploadedYaml) as { nodes: any[]; edges: any[] };
-      let center = parsed.nodes[0];
-      setCenterNodeKey(center.key);
-      const neighbors = parsed.edges
-        .filter(e => e.source === center.key || e.target === center.key)
-        .map(e => (e.source === center.key ? e.target : e.source));
-      const R = 250;
-      const angleStep = (2 * Math.PI) / Math.max(1, neighbors.length);
-      const cyNodes = [
-        {
-          data: { ...center, id: center.key, size: center.size ?? 1, color: center.color ?? "#1976d2" },
-          position: { x: 0, y: 0 },
-        },
-        ...neighbors.map((key, i) => {
-          const n = parsed.nodes.find((n: any) => n.key === key);
-          const pos = polarToXY(0, 0, R, i * angleStep);
-          return {
-            data: { ...n, id: n.key, size: n.size ?? 1, color: n.color ?? "#388e3c" },
-            position: pos,
-          };
-        }),
-      ];
-      const cyEdges = neighbors.map(key => {
-        return {
-          data: {
-            id: `${center.key}-${key}`,
-            source: center.key,
-            target: key,
-          },
-        };
-      });
-      setElements([...cyNodes, ...cyEdges]);
-      setLoading(false);
-      setSelected(center.key);
-      setInfo(center);
-    } catch (err) {
-      alert("Invalid YAML file");
-    }
-  }, [uploadedYaml]);
 
   if (loading) return <div>Loading graph...</div>;
 

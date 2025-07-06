@@ -10,7 +10,12 @@ const PORT = 3001;
 
 app.use(cors());
 
-const upload = multer({ dest: "uploads/" });
+// Ensure uploads directory exists
+const uploadDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+const upload = multer({ dest: uploadDir });
 
 // __dirname workaround for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +30,16 @@ app.post("/upload-graph", upload.single("file"), (req, res) => {
     if (err) {
       return res.status(500).json({ error: "Failed to save file" });
     }
+    // Clean up any remaining files in uploads
+    fs.readdir(uploadDir, (err, files) => {
+      if (!err) {
+        files.forEach(f => {
+          if (f !== path.basename(targetPath)) {
+            fs.unlink(path.join(uploadDir, f), () => {});
+          }
+        });
+      }
+    });
     res.json({ success: true });
   });
 });
