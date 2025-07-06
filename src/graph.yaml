@@ -9,18 +9,23 @@ nodes:
     label: IFOP
     description: Internal CRM.
   - key: ASSENTIS
-    label: ASSENTIS 
-    description: Business Intelligence platform.
-  - key: IFOP_DBaaS_PRD
-    label: DBaaS Config of IFOP 
-    description: DB Configuration. 
+    label: ASSENTIS
+    description: Regulatory Reporting System.
+  - key: CRIMS
+    label: Charles River IMS
+    description: Compliance app
+  - key: PSD2
+    label: PSD2 Services
+    description: EU Payment protocol
 edges:
   - source: OBS
     target: OMS_ARCHIVE
   - source: OBS
-    target: IFOP  
+    target: IFOP
   - source: OBS
-    target: ASSENTIS  
-  - source: IFOP
-    target: IFOP_DBaaS_PRD
+    target: ASSENTIS
+  - source: OBS
+    target: CRIMS
+  - source: OBS
+    target: PSD2
 

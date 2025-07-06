@@ -10,8 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "cytoscape": "^3.32.0",
+    "express": "^5.1.0",
     "graphology": "^0.26.0",
+    "multer": "^2.0.1",
     "react": "^19.1.0",
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.1.0",

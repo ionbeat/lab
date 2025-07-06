@@ -222,29 +222,28 @@ const StarGraph = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Upload new YAML file
+  // Upload new YAML file (send to backend to overwrite graph.yaml)
   const handleUploadYaml = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const text = evt.target?.result as string;
-      try {
-        const parsed = yaml.load(text) as { nodes: any[]; edges: any[] };
-        // Replace the graph with uploaded YAML
+    const formData = new FormData();
+    formData.append("file", file);
+    fetch("http://localhost:3001/upload-graph", {
+      method: "POST",
+      body: formData,
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error("Upload failed");
+        // Optionally reload the graph after upload
         setRootKey(null);
         setSearchKey("");
         setSearchLabel("");
-        setElements([]); // clear first
-        setTimeout(() => {
-          setElements([]); // ensure clear
-          setUploadedYaml(text); // trigger reload
-        }, 0);
-      } catch (err) {
-        alert("Invalid YAML file");
-      }
-    };
-    reader.readAsText(file);
+        setUploadedYaml(null); // force reload
+        setTimeout(() => window.location.reload(), 500); // reload page to get new YAML
+      })
+      .catch(() => {
+        alert("Upload failed");
+      });
   };
 
   // If uploadedYaml changes, reload the graph from it
