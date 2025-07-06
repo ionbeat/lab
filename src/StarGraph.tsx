@@ -20,7 +20,7 @@ const CYTO_STYLE = [
       "text-halign": "center",
       "color": "#222",
       "text-background-color": "#fff",
-      "text-background-opacity": 1,
+      "text-background-opacity": 0.7,
       "text-background-padding": 4,
       "border-width": 2,
       "border-color": "#fff",
@@ -317,8 +317,12 @@ const StarGraph = () => {
             <>
               <div style={{ fontWeight: 700, fontSize: 22, color: "#1976d2", marginBottom: 12 }}>{info.label}</div>
               <div style={{ borderBottom: "1.5px solid #d3d6db", marginBottom: 18 }}></div>
-              <div style={{ color: "#222", fontSize: 16, marginBottom: 18 }}><strong>Description:</strong> {info.description}</div>
-              <div style={{ color: "#444", fontSize: 15 }}><strong>Key:</strong> {info.key}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: 0, border: "1px solid #ececec", borderRadius: 6, background: "rgba(255,255,255,0.7)", marginBottom: 18 }}>
+                <div style={{ borderBottom: "1px solid #ececec", borderRight: "1px solid #ececec", padding: "10px 12px", color: "#444", fontWeight: 600, background: "#f7f8fa" }}>Key</div>
+                <div style={{ borderBottom: "1px solid #ececec", padding: "10px 12px", color: "#222" }}>{info.key}</div>
+                <div style={{ borderRight: "1px solid #ececec", padding: "10px 12px", color: "#444", fontWeight: 600, background: "#f7f8fa" }}>Description</div>
+                <div style={{ padding: "10px 12px", color: "#222" }}>{info.description}</div>
+              </div>
             </>
           ) : (
             <div style={{ color: "#888", fontSize: 16 }}>Select a node to see details</div>
