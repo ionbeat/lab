@@ -1,5 +1,6 @@
-import React from "react";
 import StarGraph from "./StarGraph";
+
+declare module 'react-cytoscapejs';
 
 function App() {
   return <StarGraph />;
